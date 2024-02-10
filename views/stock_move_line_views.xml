@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+        <record id="view_move_line_tree_inherited" model="ir.ui.view">
+              <field name="name">view.move.line.tree.inherited</field>
+              <field name="model">stock.move.line</field>
+              <field name="inherit_id" ref="stock.view_move_line_tree"/>
+              <field name="priority" eval="10"/>
+              <field name="arch" type="xml">
+                <xpath expr="//field[@name='location_dest_id']" position="after">
+                    <field name="result_package_id" groups="stock.group_tracking_lot"/>
+                </xpath>
+              </field>
+        </record>
+
+</odoo>
