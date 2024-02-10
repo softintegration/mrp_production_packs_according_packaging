@@ -9,9 +9,22 @@ class MrpProduction(models.Model):
     """ Manufacturing Orders """
     _inherit = 'mrp.production'
 
-    #has_packages = fields.Boolean(
-    #    'Has Packages', compute='_compute_has_packages',
-    #    help='Check the existence of destination packages on move lines')
+    has_packages = fields.Boolean(
+        'Has Packages', compute='_compute_has_packages',
+        help='Check the existence of destination packages on move lines')
+
+    def _compute_has_packages(self):
+        for mrp_production in self:
+            domain = [('move_id', 'in', self.move_finished_ids.ids), ('result_package_id', '!=', False)]
+            mrp_production.has_packages = self.env['stock.move.line'].search_count(domain) > 0
+
+    def action_see_packages(self):
+        self.ensure_one()
+        action = self.env["ir.actions.actions"]._for_xml_id("stock.action_package_view")
+        packages = self.finished_move_line_ids.mapped('result_package_id')
+        action['domain'] = [('id', 'in', packages.ids)]
+        action['context'] = {'production_id': self.id,'print_forcasted_content':True}
+        return action
 
     def action_put_in_pack(self):
         self.ensure_one()
