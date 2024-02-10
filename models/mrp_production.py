@@ -9,6 +9,10 @@ class MrpProduction(models.Model):
     """ Manufacturing Orders """
     _inherit = 'mrp.production'
 
+    #has_packages = fields.Boolean(
+    #    'Has Packages', compute='_compute_has_packages',
+    #    help='Check the existence of destination packages on move lines')
+
     def action_put_in_pack(self):
         self.ensure_one()
         if self.state not in ('done', 'cancel'):
@@ -34,7 +38,7 @@ class MrpProduction(models.Model):
         # the super method as this new method has no reason to be used
         product_packagings = move_line_ids.move_id.product_packaging_id
         if not product_packagings:
-            return super(MrpProduction, self)._put_in_pack(move_line_ids, create_package_level=create_package_level)
+            raise UserError(_("No packaging has been detected!"))
         move_lines_to_pack_by_packaging = {}
         for packaging in product_packagings:
             move_lines_to_pack = self.env['stock.move.line']
