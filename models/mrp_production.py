@@ -2,7 +2,7 @@
 
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError
-from odoo.tools.float_utils import float_compare,float_is_zero,float_round
+from odoo.tools.float_utils import float_compare, float_is_zero, float_round
 
 
 class MrpProduction(models.Model):
@@ -12,6 +12,12 @@ class MrpProduction(models.Model):
     has_packages = fields.Boolean(
         'Has Packages', compute='_compute_has_packages',
         help='Check the existence of destination packages on move lines')
+
+    def action_confirm(self):
+        res = super(MrpProduction,self).action_confirm()
+        for each in self:
+            self.move_finished_ids._set_quantity_done(each.product_qty)
+        return res
 
     def _compute_has_packages(self):
         for mrp_production in self:
@@ -23,26 +29,31 @@ class MrpProduction(models.Model):
         action = self.env["ir.actions.actions"]._for_xml_id("stock.action_package_view")
         packages = self.finished_move_line_ids.mapped('result_package_id')
         action['domain'] = [('id', 'in', packages.ids)]
-        action['context'] = {'production_id': self.id,'print_forcasted_content':True}
+        action['context'] = {'production_id': self.id, 'print_forcasted_content': True}
         return action
 
     def action_put_in_pack(self):
         self.ensure_one()
+        # allways we try to assign the move_finished as they can be returned for any reason to 'confirmed' state
+        self.move_finished_ids._action_assign()
         if self.state not in ('done', 'cancel'):
             finished_move_lines = self.finished_move_line_ids
             move_line_ids = finished_move_lines.filtered(lambda ml:
-                float_compare(ml.qty_done, 0.0, precision_rounding=ml.product_uom_id.rounding) > 0
-                and not ml.result_package_id
-            )
+                                                         float_compare(ml.qty_done, 0.0,
+                                                                       precision_rounding=ml.product_uom_id.rounding) > 0
+                                                         and not ml.result_package_id
+                                                         )
             if not move_line_ids:
                 move_line_ids = finished_move_lines.filtered(lambda ml: float_compare(ml.product_uom_qty, 0.0,
-                                     precision_rounding=ml.product_uom_id.rounding) > 0 and float_compare(ml.qty_done, 0.0,
-                                     precision_rounding=ml.product_uom_id.rounding) == 0)
+                                                                                      precision_rounding=ml.product_uom_id.rounding) > 0 and float_compare(
+                    ml.qty_done, 0.0,
+                    precision_rounding=ml.product_uom_id.rounding) == 0)
             if move_line_ids:
-                res = self._put_in_pack_according_to_packaging(move_line_ids,create_package_level=False)
+                res = self._put_in_pack_according_to_packaging(move_line_ids, create_package_level=False)
                 return res
             else:
-                raise UserError(_("Please add 'Done' quantities to the manufacturing order finished Product to create packs."))
+                raise UserError(
+                    _("Please add 'Done' quantities to the manufacturing order finished Product to create packs."))
 
     def _put_in_pack_according_to_packaging(self, move_line_ids, create_package_level=True):
         packages = self.env['stock.quant.package']
@@ -136,3 +147,5 @@ class MrpProduction(models.Model):
                     })
                     packages |= package
         return packages
+
+

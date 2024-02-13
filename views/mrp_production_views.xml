@@ -7,7 +7,7 @@
         <field name="arch" type="xml">
             <xpath expr="//button[@name='button_scrap']" position="before">
                 <button class="oe_highlight" name="action_put_in_pack" type="object" string="Put in Pack"
-                        attrs="{'invisible': ['|',('product_packaging_id','=',False),('state', 'in', ('draft', 'done', 'cancel'))]}"
+                        attrs="{'invisible': ['|','|',('has_packages','=',True),('product_packaging_id','=',False),('state', 'in', ('draft', 'done', 'cancel'))]}"
                         groups="stock.group_tracking_lot" data-hotkey="shift+g"/>
             </xpath>
             <xpath expr="//div[@name='button_box']" position="inside">
