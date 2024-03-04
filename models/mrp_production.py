@@ -149,3 +149,23 @@ class MrpProduction(models.Model):
         return packages
 
 
+    def button_mark_done(self):
+        for each in self:
+            if each.has_packages and float_compare(each.product_qty, each.qty_producing, precision_rounding=each.product_uom_id.rounding) > 0:
+                each._ajust_packages()
+        return super(MrpProduction,self).button_mark_done()
+
+
+
+    def _ajust_packages(self):
+        self.ensure_one()
+        if self.has_packages and float_compare(self.product_qty, self.qty_producing,
+                                               precision_rounding=self.product_uom_id.rounding) > 0:
+            #packages = self.finished_move_line_ids.mapped("result_package_id")
+            for move_finished in self.move_finished_ids:
+                move_finished.quantity_done = float_round(self.qty_producing - self.qty_produced, precision_rounding=self.product_uom_id.rounding, rounding_method='HALF-UP')
+                move_finished.move_line_ids.lot_id = self.lot_producing_id
+
+
+
+
