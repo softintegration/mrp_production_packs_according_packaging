@@ -13,12 +13,6 @@ class MrpProduction(models.Model):
         'Has Packages', compute='_compute_has_packages',
         help='Check the existence of destination packages on move lines')
 
-    def action_confirm(self):
-        res = super(MrpProduction,self).action_confirm()
-        for each in self:
-            self.move_finished_ids._set_quantity_done(each.product_qty)
-        return res
-
     def _compute_has_packages(self):
         for mrp_production in self:
             domain = [('move_id', 'in', self.move_finished_ids.ids), ('result_package_id', '!=', False)]
