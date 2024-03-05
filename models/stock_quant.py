@@ -33,7 +33,10 @@ class QuantPackage(models.Model):
 
     def _get_sibling_packages(self, before=False, after=False):
         self.ensure_one()
-        domain = [('move_id.production_id', '!=', False), ('result_package_id', '!=', self.id),
+        finished_move_line = self._get_current_linked_move_line()
+        if not finished_move_line or not finished_move_line.move_id.production_id:
+            return self.env['stock.move.line']
+        domain = [('move_id.production_id', '=', finished_move_line.move_id.production_id.id), ('result_package_id', '!=', self.id),
                   ('state', '=', 'assigned')]
         if before:
             domain.append(('result_package_id', '<', self.id))
