@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*- 
 
 from odoo import models, fields, api, _
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError,ValidationError
 from odoo.tools.float_utils import float_compare, float_is_zero, float_round
 
 
@@ -26,8 +26,22 @@ class MrpProduction(models.Model):
         action['context'] = {'production_id': self.id, 'print_forcasted_content': True}
         return action
 
-    def action_put_in_pack(self):
+    def _check_action_put_in_pack(self):
         self.ensure_one()
+        if self.state in ('draft', 'done', 'cancel'):
+            raise ValidationError(_("Can not Put in pack in this state!"))
+        if self.has_packages:
+            raise ValidationError(_("This manufacturing has already generate packages!"))
+        if not self.product_packaging_id:
+            raise ValidationError(_("Packaging is not specified!"))
+        if float_compare(self.qty_producing,0.0, precision_rounding=self.product_uom_id.rounding) <= 0:
+            raise ValidationError(_("Quantity Producing is not specified!"))
+
+    def action_put_in_pack(self):
+        self._check_action_put_in_pack()
+        # FIXME:here we assume that the move_finished_ids is allways singleton
+        if float_compare(self.qty_producing,self.move_finished_ids.quantity_done, precision_rounding=self.product_uom_id.rounding) != 0:
+            self._update_move_finished_ids()
         # allways we try to assign the move_finished as they can be returned for any reason to 'confirmed' state
         self.move_finished_ids._action_assign()
         if self.state not in ('done', 'cancel'):
@@ -48,6 +62,11 @@ class MrpProduction(models.Model):
             else:
                 raise UserError(
                     _("Please add 'Done' quantities to the manufacturing order finished Product to create packs."))
+
+    def _update_move_finished_ids(self):
+        self.ensure_one()
+        self.move_finished_ids.quantity_done = self.qty_producing
+
 
     def _put_in_pack_according_to_packaging(self, move_line_ids, create_package_level=True):
         packages = self.env['stock.quant.package']
