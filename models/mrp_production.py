@@ -187,31 +187,17 @@ class MrpProduction(models.Model):
                     packages |= package
         return packages
 
-    """def button_mark_done(self):
-        for each in self:
-            if each.has_packages and float_compare(each.product_qty, each.qty_producing,
-                                                   precision_rounding=each.product_uom_id.rounding) > 0:
-                each._ajust_packages()
-        return super(MrpProduction, self).button_mark_done()
-
-    def _ajust_packages(self):
-        self.ensure_one()
-        if self.has_packages and float_compare(self.product_qty, self.qty_producing,
-                                               precision_rounding=self.product_uom_id.rounding) > 0:
-            # packages = self.finished_move_line_ids.mapped("result_package_id")
-            for move_finished in self.move_finished_ids:
-                move_finished.quantity_done = float_round(self.qty_producing - self.qty_produced,
-                                                          precision_rounding=self.product_uom_id.rounding,
-                                                          rounding_method='HALF-UP')
-                move_finished.move_line_ids.lot_id = self.lot_producing_id"""
-
     def refresh_packages(self):
         return self._refresh_packages_with_qty_producing()
 
     def _refresh_packages_with_qty_producing(self):
-        packages_removed = []
-        packages_updated = []
-        packages_added = []
+        packages_removed = {}
+        packages_updated = {}
+        packages_added = {}
+        for each in self:
+            packages_removed.update({each.id:[]})
+            packages_updated.update({each.id: []})
+            packages_added.update({each.id: []})
         ml_to_remove = self.env['stock.move.line']
         package_to_remove = self.env['stock.quant.package']
         ml_to_update = self.env['stock.move.line']
@@ -264,15 +250,55 @@ class MrpProduction(models.Model):
                         'move_id': package_move_line.move_id.id,
                         'result_package_id': new_package.id
                     })
-                    packages_added.append(new_package.name)
+                    packages_added[each.id].append(new_package.name)
                     # The while condition accept the negative values as normal values so it will not break
                     qty_to_add = max(qty_to_add-each.qty_by_packaging,0)
-        packages_removed = ml_to_remove.mapped("result_package_id").mapped("name")
-        packages_updated = ml_to_update.mapped("result_package_id").mapped("name")
+            packages_removed[each.id] = ml_to_remove.mapped("result_package_id").mapped("name")
+            packages_updated[each.id] = ml_to_update.mapped("result_package_id").mapped("name")
         ml_to_remove.unlink()
         package_to_remove.unlink()
         for ml in ml_to_update:
             ml.update({'qty_done': ml_new_qty[ml.id], 'product_uom_qty': ml_new_qty[ml.id]})
         self.move_finished_ids._action_assign()
+        self._plan_destruction_activities(packages_removed,packages_updated,packages_added,ml_new_qty)
+
+    def _plan_destruction_activities(self,packages_removed,packages_updated,packages_added,ml_new_qty):
+        activities_to_create = []
+        for each in self:
+            order_packages_removed = packages_removed[each.id]
+            order_packages_updated = packages_updated[each.id]
+            order_packages_added = packages_added[each.id]
+            if order_packages_removed:
+                activities_to_create.append({
+                    'res_id': each.id,
+                    'res_model_id': self.env['ir.model'].search([('model', '=', self._name)]).id,
+                    'user_id': self.env.user.id,
+                    'summary': _('Packages to destruct'),
+                    'note': _('The packages %s should be destructed')%",".join(pack_name for pack_name in order_packages_removed),
+                    'activity_type_id': 4,
+                    #'date_deadline': datetime.date.today(),
+                })
+            if order_packages_updated:
+                activities_to_create.append({
+                    'res_id': each.id,
+                    'res_model_id': self.env['ir.model'].search([('model', '=', self._name)]).id,
+                    'user_id': self.env.user.id,
+                    'summary': _('Packages to update'),
+                    'note': _('The packages %s should be updated') % ",".join(
+                        pack_name for pack_name in order_packages_updated),
+                    'activity_type_id': 4,
+                    # 'date_deadline': datetime.date.today(),
+                })
+            if order_packages_added:
+                activities_to_create.append({
+                    'res_id': each.id,
+                    'res_model_id': self.env['ir.model'].search([('model', '=', self._name)]).id,
+                    'user_id': self.env.user.id,
+                    'summary': _('Packages added'),
+                    'note': _('The packages %s have been added')%",".join(pack_name for pack_name in order_packages_added),
+                    'activity_type_id': 4,
+                    #'date_deadline': datetime.date.today(),
+                })
+        self.env['mail.activity'].create(activities_to_create)
 
 

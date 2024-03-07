@@ -6,8 +6,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Odoo Server 15.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-03-07 10:45+0000\n"
-"PO-Revision-Date: 2024-03-07 10:45+0000\n"
+"POT-Creation-Date: 2024-03-07 16:15+0000\n"
+"PO-Revision-Date: 2024-03-07 16:15+0000\n"
 "Last-Translator: \n"
 "Language-Team: \n"
 "MIME-Version: 1.0\n"
@@ -19,7 +19,9 @@ msgstr ""
 #: code:addons/mrp_production_packs_according_packaging/models/mrp_production.py:0
 #, python-format
 msgid "Can not Put in pack in this state!"
-msgstr "Impossible de faire des colis dans le status actuel de l'ordre de fabrication"
+msgstr ""
+"Impossible de faire des colis dans le status actuel de l'ordre de "
+"fabrication"
 
 #. module: mrp_production_packs_according_packaging
 #: model:ir.model.fields,help:mrp_production_packs_according_packaging.field_mrp_production__has_packages
@@ -47,6 +49,24 @@ msgstr "Colis"
 #: model:ir.model.fields,field_description:mrp_production_packs_according_packaging.field_mrp_production__packages_to_refresh
 msgid "Packages To Refresh"
 msgstr "Colis à actualisé"
+
+#. module: mrp_production_packs_according_packaging
+#: code:addons/mrp_production_packs_according_packaging/models/mrp_production.py:0
+#, python-format
+msgid "Packages added"
+msgstr "Colis ajoutés"
+
+#. module: mrp_production_packs_according_packaging
+#: code:addons/mrp_production_packs_according_packaging/models/mrp_production.py:0
+#, python-format
+msgid "Packages to destruct"
+msgstr "Colis à détruire"
+
+#. module: mrp_production_packs_according_packaging
+#: code:addons/mrp_production_packs_according_packaging/models/mrp_production.py:0
+#, python-format
+msgid "Packages to update"
+msgstr "Colis à modifier"
 
 #. module: mrp_production_packs_according_packaging
 #: code:addons/mrp_production_packs_according_packaging/models/mrp_production.py:0
@@ -84,6 +104,24 @@ msgstr "Quantité fabriquée n'est pas specifié"
 #: model_terms:ir.ui.view,arch_db:mrp_production_packs_according_packaging.mrp_production_form_view_inherited
 msgid "Refresh Packages"
 msgstr "Actualiser les colis"
+
+#. module: mrp_production_packs_according_packaging
+#: code:addons/mrp_production_packs_according_packaging/models/mrp_production.py:0
+#, python-format
+msgid "The packages %s have been added"
+msgstr "Les colis suivants: %s ont été ajoutés"
+
+#. module: mrp_production_packs_according_packaging
+#: code:addons/mrp_production_packs_according_packaging/models/mrp_production.py:0
+#, python-format
+msgid "The packages %s should be destructed"
+msgstr "Les colis suivants: %s doivent être détruit"
+
+#. module: mrp_production_packs_according_packaging
+#: code:addons/mrp_production_packs_according_packaging/models/mrp_production.py:0
+#, python-format
+msgid "The packages %s should be updated"
+msgstr "Les colis suivants: %s doivent être modifées (en terme de quantité)"
 
 #. module: mrp_production_packs_according_packaging
 #: code:addons/mrp_production_packs_according_packaging/models/mrp_production.py:0
