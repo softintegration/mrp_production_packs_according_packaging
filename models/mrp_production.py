@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*- 
 
 from odoo import models, fields, api, _
-from odoo.exceptions import UserError,ValidationError
+from odoo.exceptions import UserError, ValidationError
 from odoo.tools.float_utils import float_compare, float_is_zero, float_round
 
 
@@ -12,19 +12,44 @@ class MrpProduction(models.Model):
     has_packages = fields.Boolean(
         'Has Packages', compute='_compute_has_packages',
         help='Check the existence of destination packages on move lines')
+    packages_to_refresh = fields.Boolean(compute='_compute_packages_to_refresh')
+
+    @api.depends('qty_producing')
+    def _compute_packages_to_refresh(self):
+        for each in self:
+            if not each._get_related_packages():
+                each.packages_to_refresh = False
+            elif float_compare(each.qty_producing, each.move_finished_ids.filtered(
+                    lambda mv: mv.product_id.id == each.product_id.id and mv.state != 'cancel').quantity_done,
+                               precision_rounding=each.product_uom_id.rounding) != 0:
+                each.packages_to_refresh = True
+            else:
+                each.packages_to_refresh = False
 
     def _compute_has_packages(self):
         for mrp_production in self:
-            domain = [('move_id', 'in', self.move_finished_ids.ids), ('result_package_id', '!=', False)]
-            mrp_production.has_packages = self.env['stock.move.line'].search_count(domain) > 0
+            mrp_production.has_packages = mrp_production._get_related_packages_move_lines(count_only=True) > 0
 
     def action_see_packages(self):
         self.ensure_one()
         action = self.env["ir.actions.actions"]._for_xml_id("stock.action_package_view")
-        packages = self.finished_move_line_ids.mapped('result_package_id')
+        packages = self._get_related_packages()
         action['domain'] = [('id', 'in', packages.ids)]
         action['context'] = {'production_id': self.id, 'print_forcasted_content': True}
         return action
+
+    def _get_related_packages_move_lines(self, count_only=False, order='id ASC', limit=False):
+        self.ensure_one()
+        domain = [('move_id', 'in', self.move_finished_ids.ids), ('result_package_id', '!=', False)]
+        if count_only:
+            return self.env['stock.move.line'].search_count(domain)
+        if limit:
+            return self.env['stock.move.line'].search(domain, order=order, limit=limit)
+        return self.env['stock.move.line'].search(domain, order=order)
+
+    def _get_related_packages(self):
+        packages = self.finished_move_line_ids.mapped('result_package_id')
+        return packages
 
     def _check_action_put_in_pack(self):
         self.ensure_one()
@@ -34,13 +59,14 @@ class MrpProduction(models.Model):
             raise ValidationError(_("This manufacturing has already generate packages!"))
         if not self.product_packaging_id:
             raise ValidationError(_("Packaging is not specified!"))
-        if float_compare(self.qty_producing,0.0, precision_rounding=self.product_uom_id.rounding) <= 0:
+        if float_compare(self.qty_producing, 0.0, precision_rounding=self.product_uom_id.rounding) <= 0:
             raise ValidationError(_("Quantity Producing is not specified!"))
 
     def action_put_in_pack(self):
         self._check_action_put_in_pack()
         # FIXME:here we assume that the move_finished_ids is allways singleton
-        if float_compare(self.qty_producing,self.move_finished_ids.quantity_done, precision_rounding=self.product_uom_id.rounding) != 0:
+        if float_compare(self.qty_producing, self.move_finished_ids.quantity_done,
+                         precision_rounding=self.product_uom_id.rounding) != 0:
             self._update_move_finished_ids()
         # allways we try to assign the move_finished as they can be returned for any reason to 'confirmed' state
         self.move_finished_ids._action_assign()
@@ -65,8 +91,8 @@ class MrpProduction(models.Model):
 
     def _update_move_finished_ids(self):
         self.ensure_one()
-        self.move_finished_ids.quantity_done = self.qty_producing
-
+        self.move_finished_ids.filtered(
+            lambda mv: mv.product_id.id == self.product_id.id).quantity_done = self.qty_producing
 
     def _put_in_pack_according_to_packaging(self, move_line_ids, create_package_level=True):
         packages = self.env['stock.quant.package']
@@ -161,24 +187,92 @@ class MrpProduction(models.Model):
                     packages |= package
         return packages
 
-
-    def button_mark_done(self):
+    """def button_mark_done(self):
         for each in self:
-            if each.has_packages and float_compare(each.product_qty, each.qty_producing, precision_rounding=each.product_uom_id.rounding) > 0:
+            if each.has_packages and float_compare(each.product_qty, each.qty_producing,
+                                                   precision_rounding=each.product_uom_id.rounding) > 0:
                 each._ajust_packages()
-        return super(MrpProduction,self).button_mark_done()
-
-
+        return super(MrpProduction, self).button_mark_done()
 
     def _ajust_packages(self):
         self.ensure_one()
         if self.has_packages and float_compare(self.product_qty, self.qty_producing,
                                                precision_rounding=self.product_uom_id.rounding) > 0:
-            #packages = self.finished_move_line_ids.mapped("result_package_id")
+            # packages = self.finished_move_line_ids.mapped("result_package_id")
             for move_finished in self.move_finished_ids:
-                move_finished.quantity_done = float_round(self.qty_producing - self.qty_produced, precision_rounding=self.product_uom_id.rounding, rounding_method='HALF-UP')
-                move_finished.move_line_ids.lot_id = self.lot_producing_id
+                move_finished.quantity_done = float_round(self.qty_producing - self.qty_produced,
+                                                          precision_rounding=self.product_uom_id.rounding,
+                                                          rounding_method='HALF-UP')
+                move_finished.move_line_ids.lot_id = self.lot_producing_id"""
 
+    def refresh_packages(self):
+        return self._refresh_packages_with_qty_producing()
 
+    def _refresh_packages_with_qty_producing(self):
+        packages_removed = []
+        packages_updated = []
+        packages_added = []
+        ml_to_remove = self.env['stock.move.line']
+        package_to_remove = self.env['stock.quant.package']
+        ml_to_update = self.env['stock.move.line']
+        ml_new_qty = {}
+        for each in self:
+            if not each.has_packages:
+                continue
+            if float_compare(each.qty_producing, each.move_finished_ids.filtered(
+                    lambda mv: mv.product_id.id == each.product_id.id).quantity_done,
+                             precision_rounding=each.product_uom_id.rounding) < 0:
+                qty_removed = 0.0
+                qty_to_remove = each.move_finished_ids.filtered(
+                    lambda mv: mv.product_id.id == each.product_id.id).quantity_done - each.qty_producing
+                packages_move_lines = each._get_related_packages_move_lines(order='result_package_id DESC')
+                for package_ml in packages_move_lines:
+                    qty_removed += package_ml.qty_done
+                    if float_compare(qty_removed, qty_to_remove, precision_rounding=each.product_uom_id.rounding) == 0:
+                        ml_to_remove |= package_ml
+                        package_to_remove |= package_ml.result_package_id
+                        break
+                    elif float_compare(qty_removed, qty_to_remove, precision_rounding=each.product_uom_id.rounding) < 0:
+                        ml_to_remove |= package_ml
+                        package_to_remove |= package_ml.result_package_id
+                    elif float_compare(qty_removed, qty_to_remove, precision_rounding=each.product_uom_id.rounding) > 0:
+                        ml_to_update |= package_ml
+                        ml_new_qty.update({package_ml.id: qty_removed - qty_to_remove})
+                        break
+            elif float_compare(each.qty_producing, each.move_finished_ids.filtered(
+                    lambda mv: mv.product_id.id == each.product_id.id).quantity_done,
+                               precision_rounding=each.product_uom_id.rounding) > 0:
+                qty_added = 0.0
+                qty_to_add = each.qty_producing - each.move_finished_ids.filtered(
+                    lambda mv: mv.product_id.id == each.product_id.id).quantity_done
+                package_move_line = each._get_related_packages_move_lines(order='result_package_id DESC', limit=1)
+                # we have to check if there is un incomplete quantity in this last package to start the adding from that
+                if float_compare(package_move_line.qty_done, each.qty_by_packaging,
+                                 precision_rounding=each.product_uom_id.rounding) < 0:
+                    ml_to_update |= package_move_line
+                    qty_to_complete_package = min(each.qty_by_packaging - package_move_line.qty_done, qty_to_add)
+                    ml_new_qty.update({package_move_line.id: package_move_line.qty_done + qty_to_complete_package})
+                    qty_added += qty_to_complete_package
+                # we have to create and add packages until we achieve the qty that should be added
+                qty_to_add -= qty_added
+                while qty_to_add:
+                    new_package = self.env['stock.quant.package'].create(
+                        {'package_type_id': each.product_packaging_id.package_type_id and each.product_packaging_id.package_type_id.id})
+                    package_move_line.copy({
+                        'product_uom_qty': min(qty_to_add,each.qty_by_packaging),
+                        'qty_done': min(qty_to_add,each.qty_by_packaging),
+                        'move_id': package_move_line.move_id.id,
+                        'result_package_id': new_package.id
+                    })
+                    packages_added.append(new_package.name)
+                    # The while condition accept the negative values as normal values so it will not break
+                    qty_to_add = max(qty_to_add-each.qty_by_packaging,0)
+        packages_removed = ml_to_remove.mapped("result_package_id").mapped("name")
+        packages_updated = ml_to_update.mapped("result_package_id").mapped("name")
+        ml_to_remove.unlink()
+        package_to_remove.unlink()
+        for ml in ml_to_update:
+            ml.update({'qty_done': ml_new_qty[ml.id], 'product_uom_qty': ml_new_qty[ml.id]})
+        self.move_finished_ids._action_assign()
 
 

@@ -6,8 +6,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Odoo Server 15.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-02-10 17:08+0000\n"
-"PO-Revision-Date: 2024-02-10 17:08+0000\n"
+"POT-Creation-Date: 2024-03-07 10:45+0000\n"
+"PO-Revision-Date: 2024-03-07 10:45+0000\n"
 "Last-Translator: \n"
 "Language-Team: \n"
 "MIME-Version: 1.0\n"
@@ -16,14 +16,20 @@ msgstr ""
 "Plural-Forms: \n"
 
 #. module: mrp_production_packs_according_packaging
+#: code:addons/mrp_production_packs_according_packaging/models/mrp_production.py:0
+#, python-format
+msgid "Can not Put in pack in this state!"
+msgstr "Impossible de faire des colis dans le status actuel de l'ordre de fabrication"
+
+#. module: mrp_production_packs_according_packaging
 #: model:ir.model.fields,help:mrp_production_packs_according_packaging.field_mrp_production__has_packages
 msgid "Check the existence of destination packages on move lines"
-msgstr ""
+msgstr "Vérifier l'existence des colis"
 
 #. module: mrp_production_packs_according_packaging
 #: model:ir.model.fields,field_description:mrp_production_packs_according_packaging.field_mrp_production__has_packages
 msgid "Has Packages"
-msgstr ""
+msgstr "A des colis"
 
 #. module: mrp_production_packs_according_packaging
 #: code:addons/mrp_production_packs_according_packaging/models/mrp_production.py:0
@@ -32,9 +38,21 @@ msgid "No packaging has been detected!"
 msgstr "Conditionnement obligatoire pour faire des colis!"
 
 #. module: mrp_production_packs_according_packaging
+#: model:ir.model,name:mrp_production_packs_according_packaging.model_stock_quant_package
 #: model_terms:ir.ui.view,arch_db:mrp_production_packs_according_packaging.mrp_production_form_view_inherited
 msgid "Packages"
 msgstr "Colis"
+
+#. module: mrp_production_packs_according_packaging
+#: model:ir.model.fields,field_description:mrp_production_packs_according_packaging.field_mrp_production__packages_to_refresh
+msgid "Packages To Refresh"
+msgstr "Colis à actualisé"
+
+#. module: mrp_production_packs_according_packaging
+#: code:addons/mrp_production_packs_according_packaging/models/mrp_production.py:0
+#, python-format
+msgid "Packaging is not specified!"
+msgstr "Colis n'est pas spécifié"
 
 #. module: mrp_production_packs_according_packaging
 #: code:addons/mrp_production_packs_according_packaging/models/mrp_production.py:0
@@ -55,3 +73,20 @@ msgstr "Ordre de fabrication"
 #: model_terms:ir.ui.view,arch_db:mrp_production_packs_according_packaging.mrp_production_form_view_inherited
 msgid "Put in Pack"
 msgstr "Faire des colis"
+
+#. module: mrp_production_packs_according_packaging
+#: code:addons/mrp_production_packs_according_packaging/models/mrp_production.py:0
+#, python-format
+msgid "Quantity Producing is not specified!"
+msgstr "Quantité fabriquée n'est pas specifié"
+
+#. module: mrp_production_packs_according_packaging
+#: model_terms:ir.ui.view,arch_db:mrp_production_packs_according_packaging.mrp_production_form_view_inherited
+msgid "Refresh Packages"
+msgstr "Actualiser les colis"
+
+#. module: mrp_production_packs_according_packaging
+#: code:addons/mrp_production_packs_according_packaging/models/mrp_production.py:0
+#, python-format
+msgid "This manufacturing has already generate packages!"
+msgstr "Cet Ordre de fabrication a déja des colis"
