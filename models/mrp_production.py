@@ -141,51 +141,62 @@ class MrpProduction(models.Model):
                 for pack_nbr in range(0, int(nbr_of_packages - 1)):
                     # create packages as more as the number of packages found
                     # the type of created packages must follow the type of packaging specified in the parent move
-                    package = self.env['stock.quant.package'].create(
-                        {'package_type_id': packaging.package_type_id and packaging.package_type_id.id})
+                    #package = self.env['stock.quant.package'].create(
+                    #    {'package_type_id': packaging.package_type_id and packaging.package_type_id.id})
                     new_move_line = move_line_to_pack.copy({
                         'product_uom_qty': move_line_to_pack.state == 'assigned' and packaging.qty or 0.0,
                         'qty_done': packaging.qty,
-                        'result_package_id': package.id
+                        #'result_package_id': package.id
                     })
                     remaining_qty -= packaging.qty
+                    package = self._pack_move_line(new_move_line,packaging)
                     packages |= package
                     if create_package_level: self._create_package_level(new_move_line, package)
                 # if there is any remaining qty that doesn't reach the capacity of package ,we have to create new package and put it in
                 # we have to update the original splitted move line
                 if int(nbr_of_packages) > 0:
                     # we have to do this check,because if the nbr_of_packages == 0 this mean that move line is not splitted at all because the qty_done is less then the qty contained by the package
-                    package = self.env['stock.quant.package'].create(
-                        {'package_type_id': packaging.package_type_id and packaging.package_type_id.id})
+                    #package = self.env['stock.quant.package'].create(
+                    #    {'package_type_id': packaging.package_type_id and packaging.package_type_id.id})
                     move_line_to_pack.write({
                         'product_uom_qty': move_line_to_pack.state == 'assigned' and packaging.qty or 0.0,
                         'qty_done': packaging.qty,
-                        'result_package_id': package.id
+                        #'result_package_id': package.id
                     })
                     remaining_qty -= packaging.qty
+                    package = self._pack_move_line(move_line_to_pack, packaging)
                     packages |= package
                     if create_package_level: self._create_package_level(move_line_to_pack, package)
                     if last_package:
-                        package = self.env['stock.quant.package'].create(
-                            {'package_type_id': packaging.package_type_id and packaging.package_type_id.id})
+                        #package = self.env['stock.quant.package'].create(
+                        #    {'package_type_id': packaging.package_type_id and packaging.package_type_id.id})
                         new_move_line = move_line_to_pack.copy({
                             'product_uom_qty': move_line_to_pack.state == 'assigned' and last_package or 0.0,
                             'qty_done': last_package,
-                            'result_package_id': package.id
+                            #'result_package_id': package.id
                         })
                         remaining_qty -= last_package
+                        package = self._pack_move_line(new_move_line, packaging)
                         packages |= package
                         if create_package_level: self._create_package_level(new_move_line, package)
                 else:
                     # in this case the move line qty done is less then the contained qty
                     # we have to do this check,because if the nbr_of_packages == 0 this mean that move line is not splitted at all because the qty_done is less then the qty contained by the package
-                    package = self.env['stock.quant.package'].create(
-                        {'package_type_id': packaging.package_type_id and packaging.package_type_id.id})
-                    move_line_to_pack.write({
-                        'result_package_id': package.id
-                    })
+                    #package = self.env['stock.quant.package'].create(
+                    #    {'package_type_id': packaging.package_type_id and packaging.package_type_id.id})
+                    #move_line_to_pack.write({
+                    #    'result_package_id': package.id
+                    #})
+                    package = self._pack_move_line(move_line_to_pack, packaging)
                     packages |= package
         return packages
+
+
+    def _pack_move_line(self,move_line,packaging):
+        package = self.env['stock.quant.package'].create(
+            {'package_type_id': packaging.package_type_id and packaging.package_type_id.id})
+        move_line.write({'result_package_id': package.id})
+        return package
 
     def refresh_packages(self):
         return self._refresh_packages_with_qty_producing()
@@ -242,14 +253,15 @@ class MrpProduction(models.Model):
                 # we have to create and add packages until we achieve the qty that should be added
                 qty_to_add -= qty_added
                 while qty_to_add:
-                    new_package = self.env['stock.quant.package'].create(
-                        {'package_type_id': each.product_packaging_id.package_type_id and each.product_packaging_id.package_type_id.id})
-                    package_move_line.copy({
+                    #new_package = self.env['stock.quant.package'].create(
+                    #    {'package_type_id': each.product_packaging_id.package_type_id and each.product_packaging_id.package_type_id.id})
+                    new_move_line = package_move_line.copy({
                         'product_uom_qty': min(qty_to_add,each.qty_by_packaging),
                         'qty_done': min(qty_to_add,each.qty_by_packaging),
                         'move_id': package_move_line.move_id.id,
-                        'result_package_id': new_package.id
+                        #'result_package_id': new_package.id
                     })
+                    new_package = self._pack_move_line(new_move_line,each.product_packaging_id)
                     packages_added[each.id].append(new_package.name)
                     # The while condition accept the negative values as normal values so it will not break
                     qty_to_add = max(qty_to_add-each.qty_by_packaging,0)
