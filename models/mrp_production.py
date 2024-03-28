@@ -313,4 +313,8 @@ class MrpProduction(models.Model):
                 })
         self.env['mail.activity'].create(activities_to_create)
 
-
+    def button_mark_done(self):
+        for each in self:
+            if not each.has_packages:
+                each.move_finished_ids.move_line_ids.unlink()
+        return super(MrpProduction,self).button_mark_done()
