@@ -13,6 +13,19 @@ class MrpProduction(models.Model):
         'Has Packages', compute='_compute_has_packages',
         help='Check the existence of destination packages on move lines')
     packages_to_refresh = fields.Boolean(compute='_compute_packages_to_refresh')
+    packages_to_reset = fields.Boolean(compute='_compute_packages_to_reset')
+
+    @api.depends('qty_by_packaging')
+    def _compute_packages_to_reset(self):
+        for each in self:
+            if not each._get_related_packages():
+                each.packages_to_reset = False
+            elif float_compare(each.qty_producing,
+                               each.qty_by_packaging * len(each._get_related_packages()) - (each.qty_by_packaging-each.incomplete_qty),
+                               precision_rounding=each.product_uom_id.rounding) != 0:
+                each.packages_to_reset = True
+            else:
+                each.packages_to_reset = False
 
     @api.depends('qty_producing')
     def _compute_packages_to_refresh(self):
@@ -48,7 +61,8 @@ class MrpProduction(models.Model):
         return self.env['stock.move.line'].search(domain, order=order)
 
     def _get_related_packages(self):
-        packages = self.finished_move_line_ids.mapped('result_package_id')
+        packages = self.finished_move_line_ids.filtered(lambda ml: ml.product_id.id == self.product_id.id).mapped(
+            'result_package_id')
         return packages
 
     def _check_action_put_in_pack(self):
@@ -141,39 +155,39 @@ class MrpProduction(models.Model):
                 for pack_nbr in range(0, int(nbr_of_packages - 1)):
                     # create packages as more as the number of packages found
                     # the type of created packages must follow the type of packaging specified in the parent move
-                    #package = self.env['stock.quant.package'].create(
+                    # package = self.env['stock.quant.package'].create(
                     #    {'package_type_id': packaging.package_type_id and packaging.package_type_id.id})
                     new_move_line = move_line_to_pack.copy({
                         'product_uom_qty': move_line_to_pack.state == 'assigned' and packaging.qty or 0.0,
                         'qty_done': packaging.qty,
-                        #'result_package_id': package.id
+                        # 'result_package_id': package.id
                     })
                     remaining_qty -= packaging.qty
-                    package = self._pack_move_line(new_move_line,packaging)
+                    package = self._pack_move_line(new_move_line, packaging)
                     packages |= package
                     if create_package_level: self._create_package_level(new_move_line, package)
                 # if there is any remaining qty that doesn't reach the capacity of package ,we have to create new package and put it in
                 # we have to update the original splitted move line
                 if int(nbr_of_packages) > 0:
                     # we have to do this check,because if the nbr_of_packages == 0 this mean that move line is not splitted at all because the qty_done is less then the qty contained by the package
-                    #package = self.env['stock.quant.package'].create(
+                    # package = self.env['stock.quant.package'].create(
                     #    {'package_type_id': packaging.package_type_id and packaging.package_type_id.id})
                     move_line_to_pack.write({
                         'product_uom_qty': move_line_to_pack.state == 'assigned' and packaging.qty or 0.0,
                         'qty_done': packaging.qty,
-                        #'result_package_id': package.id
+                        # 'result_package_id': package.id
                     })
                     remaining_qty -= packaging.qty
                     package = self._pack_move_line(move_line_to_pack, packaging)
                     packages |= package
                     if create_package_level: self._create_package_level(move_line_to_pack, package)
                     if last_package:
-                        #package = self.env['stock.quant.package'].create(
+                        # package = self.env['stock.quant.package'].create(
                         #    {'package_type_id': packaging.package_type_id and packaging.package_type_id.id})
                         new_move_line = move_line_to_pack.copy({
                             'product_uom_qty': move_line_to_pack.state == 'assigned' and last_package or 0.0,
                             'qty_done': last_package,
-                            #'result_package_id': package.id
+                            # 'result_package_id': package.id
                         })
                         remaining_qty -= last_package
                         package = self._pack_move_line(new_move_line, packaging)
@@ -182,31 +196,37 @@ class MrpProduction(models.Model):
                 else:
                     # in this case the move line qty done is less then the contained qty
                     # we have to do this check,because if the nbr_of_packages == 0 this mean that move line is not splitted at all because the qty_done is less then the qty contained by the package
-                    #package = self.env['stock.quant.package'].create(
+                    # package = self.env['stock.quant.package'].create(
                     #    {'package_type_id': packaging.package_type_id and packaging.package_type_id.id})
-                    #move_line_to_pack.write({
+                    # move_line_to_pack.write({
                     #    'result_package_id': package.id
-                    #})
+                    # })
                     package = self._pack_move_line(move_line_to_pack, packaging)
                     packages |= package
         return packages
 
-
-    def _pack_move_line(self,move_line,packaging):
+    def _pack_move_line(self, move_line, packaging):
         package = self.env['stock.quant.package'].create(
             {'package_type_id': packaging.package_type_id and packaging.package_type_id.id})
         move_line.write({'result_package_id': package.id})
         return package
 
-    def refresh_packages(self):
+    def action_refresh_packages(self):
+        # if the packages have to be reset we don't need to refresh them
+        self._check_package_reset()
         return self._refresh_packages_with_qty_producing()
+
+    def _check_package_reset(self):
+        for each in self:
+            if each.packages_to_reset:
+                raise ValidationError(_("Packages of Manufacturing %s are no longer valid ,you should reset them!"))
 
     def _refresh_packages_with_qty_producing(self):
         packages_removed = {}
         packages_updated = {}
         packages_added = {}
         for each in self:
-            packages_removed.update({each.id:[]})
+            packages_removed.update({each.id: []})
             packages_updated.update({each.id: []})
             packages_added.update({each.id: []})
         ml_to_remove = self.env['stock.move.line']
@@ -253,18 +273,18 @@ class MrpProduction(models.Model):
                 # we have to create and add packages until we achieve the qty that should be added
                 qty_to_add -= qty_added
                 while qty_to_add:
-                    #new_package = self.env['stock.quant.package'].create(
+                    # new_package = self.env['stock.quant.package'].create(
                     #    {'package_type_id': each.product_packaging_id.package_type_id and each.product_packaging_id.package_type_id.id})
                     new_move_line = package_move_line.copy({
-                        'product_uom_qty': min(qty_to_add,each.qty_by_packaging),
-                        'qty_done': min(qty_to_add,each.qty_by_packaging),
+                        'product_uom_qty': min(qty_to_add, each.qty_by_packaging),
+                        'qty_done': min(qty_to_add, each.qty_by_packaging),
                         'move_id': package_move_line.move_id.id,
-                        #'result_package_id': new_package.id
+                        # 'result_package_id': new_package.id
                     })
-                    new_package = self._pack_move_line(new_move_line,each.product_packaging_id)
+                    new_package = self._pack_move_line(new_move_line, each.product_packaging_id)
                     packages_added[each.id].append(new_package.name)
                     # The while condition accept the negative values as normal values so it will not break
-                    qty_to_add = max(qty_to_add-each.qty_by_packaging,0)
+                    qty_to_add = max(qty_to_add - each.qty_by_packaging, 0)
             packages_removed[each.id] = ml_to_remove.mapped("result_package_id").mapped("name")
             packages_updated[each.id] = ml_to_update.mapped("result_package_id").mapped("name")
         ml_to_remove.unlink()
@@ -272,23 +292,37 @@ class MrpProduction(models.Model):
         for ml in ml_to_update:
             ml.update({'qty_done': ml_new_qty[ml.id], 'product_uom_qty': ml_new_qty[ml.id]})
         self.move_finished_ids._action_assign()
-        self._plan_destruction_activities(packages_removed,packages_updated,packages_added,ml_new_qty)
+        self._plan_destruction_activities(packages_removed, packages_updated, packages_added)
 
-    def _plan_destruction_activities(self,packages_removed,packages_updated,packages_added,ml_new_qty):
+    def _plan_destruction_activities(self, packages_removed, packages_updated, packages_added,reset_packages_message=False):
         activities_to_create = []
         for each in self:
             order_packages_removed = packages_removed[each.id]
             order_packages_updated = packages_updated[each.id]
             order_packages_added = packages_added[each.id]
+            if reset_packages_message and order_packages_removed:
+                activities_to_create.append({
+                    'res_id': each.id,
+                    'res_model_id': self.env['ir.model'].search([('model', '=', self._name)]).id,
+                    'user_id': self.env.user.id,
+                    'summary': _('Packages to destruct'),
+                    'note': _('All the packages from %s ... %s should be destructed') %(order_packages_removed[len(order_packages_removed)-1],
+                                                                                        order_packages_removed[0]),
+                    'activity_type_id': 4,
+                    # 'date_deadline': datetime.date.today(),
+                })
+                # if we this is reset packages activity message we have to stop here
+                continue
             if order_packages_removed:
                 activities_to_create.append({
                     'res_id': each.id,
                     'res_model_id': self.env['ir.model'].search([('model', '=', self._name)]).id,
                     'user_id': self.env.user.id,
                     'summary': _('Packages to destruct'),
-                    'note': _('The packages %s should be destructed')%",".join(pack_name for pack_name in order_packages_removed),
+                    'note': _('The packages %s should be destructed') % ",".join(
+                        pack_name for pack_name in order_packages_removed),
                     'activity_type_id': 4,
-                    #'date_deadline': datetime.date.today(),
+                    # 'date_deadline': datetime.date.today(),
                 })
             if order_packages_updated:
                 activities_to_create.append({
@@ -307,14 +341,38 @@ class MrpProduction(models.Model):
                     'res_model_id': self.env['ir.model'].search([('model', '=', self._name)]).id,
                     'user_id': self.env.user.id,
                     'summary': _('Packages added'),
-                    'note': _('The packages %s have been added')%",".join(pack_name for pack_name in order_packages_added),
+                    'note': _('The packages %s have been added') % ",".join(
+                        pack_name for pack_name in order_packages_added),
                     'activity_type_id': 4,
-                    #'date_deadline': datetime.date.today(),
+                    # 'date_deadline': datetime.date.today(),
                 })
         self.env['mail.activity'].create(activities_to_create)
+
+    def action_reset_packages(self):
+        return self._reset_packages()
+
+    def _reset_packages(self):
+        packages_removed = {}
+        packages_updated = {}
+        packages_added = {}
+        for each in self.filtered(lambda mrp: mrp.packages_to_reset):
+            packages_removed.update({each.id: []})
+            packages_updated.update({each.id: []})
+            packages_added.update({each.id: []})
+            # remove all the packages as they are no longer valid
+            packages_to_remove = each._get_related_packages()
+            each.move_finished_ids.filtered(lambda mv:mv.product_id.id == each.product_id.id)._do_unreserve()
+            each.move_finished_ids.move_line_ids.unlink()
+            packages_removed[each.id] = packages_to_remove.mapped("name")
+            packages_to_remove.unlink()
+            each.action_put_in_pack()
+        self._plan_destruction_activities(packages_removed, packages_updated, packages_added,reset_packages_message=True)
+
+
+
 
     def button_mark_done(self):
         for each in self:
             if not each.has_packages:
                 each.move_finished_ids.move_line_ids.unlink()
-        return super(MrpProduction,self).button_mark_done()
+        return super(MrpProduction, self).button_mark_done()

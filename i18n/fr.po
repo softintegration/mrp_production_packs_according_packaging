@@ -6,14 +6,20 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Odoo Server 15.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-03-07 16:15+0000\n"
-"PO-Revision-Date: 2024-03-07 16:15+0000\n"
+"POT-Creation-Date: 2024-06-14 10:01+0000\n"
+"PO-Revision-Date: 2024-06-14 10:01+0000\n"
 "Last-Translator: \n"
 "Language-Team: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
 "Plural-Forms: \n"
+
+#. module: mrp_production_packs_according_packaging
+#: code:addons/mrp_production_packs_according_packaging/models/mrp_production.py:0
+#, python-format
+msgid "All the packages from %s ... %s should be destructed"
+msgstr "Tous les colis %s ... %s doivent être détruit"
 
 #. module: mrp_production_packs_according_packaging
 #: code:addons/mrp_production_packs_according_packaging/models/mrp_production.py:0
@@ -51,12 +57,25 @@ msgid "Packages To Refresh"
 msgstr "Colis à actualisé"
 
 #. module: mrp_production_packs_according_packaging
+#: model:ir.model.fields,field_description:mrp_production_packs_according_packaging.field_mrp_production__packages_to_reset
+msgid "Packages To Reset"
+msgstr ""
+
+#. module: mrp_production_packs_according_packaging
 #: code:addons/mrp_production_packs_according_packaging/models/mrp_production.py:0
 #, python-format
 msgid "Packages added"
 msgstr "Colis ajoutés"
 
 #. module: mrp_production_packs_according_packaging
+#: code:addons/mrp_production_packs_according_packaging/models/mrp_production.py:0
+#, python-format
+msgid ""
+"Packages of Manufacturing %s are no longer valid ,you should reset them!"
+msgstr ""
+
+#. module: mrp_production_packs_according_packaging
+#: code:addons/mrp_production_packs_according_packaging/models/mrp_production.py:0
 #: code:addons/mrp_production_packs_according_packaging/models/mrp_production.py:0
 #, python-format
 msgid "Packages to destruct"

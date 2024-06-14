@@ -10,12 +10,15 @@
                         attrs="{'invisible': ['|','|','|',('has_packages','=',True),('product_packaging_id','=',False),('qty_producing','&lt;=',0.0),('state', 'in', ('draft', 'done', 'cancel'))]}"
                         groups="stock.group_tracking_lot" data-hotkey="shift+g"/>
 
-                <button class="oe_highlight" name="refresh_packages" type="object" string="Refresh Packages"
-                        attrs="{'invisible': ['|',('packages_to_refresh','=',False),('state','in',('cancel','done'))]}"/>
+                <button class="oe_highlight" name="action_refresh_packages" type="object" string="Refresh Packages"
+                        attrs="{'invisible': ['|','|',('packages_to_refresh','=',False),('packages_to_reset','=',True),('state','in',('cancel','done'))]}"/>
+                <button class="oe_highlight" name="action_reset_packages" type="object" string="Refresh Packages"
+                        attrs="{'invisible': ['|',('packages_to_reset','=',False),('state','in',('cancel','done'))]}"/>
             </xpath>
             <xpath expr="//div[@name='button_box']" position="inside">
                 <field name="has_packages" invisible="1"/>
                 <field name="packages_to_refresh" invisible="1"/>
+                <field name="packages_to_reset" invisible="1"/>
                 <button name="action_see_packages" string="Packages" type="object"
                             class="oe_stat_button" icon="fa-cubes"
                             attrs="{'invisible': [('has_packages', '=', False)]}"/>
